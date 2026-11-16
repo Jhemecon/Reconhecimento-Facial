@@ -1,3 +1,4 @@
+import threading
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -187,10 +188,10 @@ def face_quality_score(landmarks, frame_w, frame_h):
 
 class FaceEngine:
     def __init__(self):
-        # YuNet detector (fast, for initial detection)
-        self.detector = cv2.dnn.readNet(str(DETECTOR_PATH))
-        self.detector.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-        self.detector.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+        # YuNet detector (native FaceDetectorYN API)
+        self.detector = cv2.FaceDetectorYN.create(
+            str(DETECTOR_PATH), "", (320, 320), DETECT_CONF_THRESHOLD, 0.3, 5000
+        )
 
         # SFace recognizer (for embeddings)
         self.recognizer = cv2.dnn.readNet(str(RECOGNIZER_PATH))
@@ -214,68 +215,31 @@ class FaceEngine:
         # Previous frame for temporal smoothing
         self.prev_landmarks = None
         self.prev_embedding = None
+        self._detect_lock = threading.Lock()
 
     def detect(self, frame):
         """Fast detection with YuNet, returns the best face bounding box"""
         h, w = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(frame, 1.0, (320, 320), (0, 0, 0), swapRB=True, crop=False)
-        self.detector.setInput(blob)
-        outs = self.detector.forward(self.detector.getUnconnectedOutLayers().flatten().tolist())
+        resized = cv2.resize(frame, (320, 320))
+        with self._detect_lock:
+            _, raw_faces = self.detector.detect(resized)
 
-        boxes = []
-        confs = []
-        strides = [8, 16, 32]
+        if raw_faces is None:
+            return []
+
         scale_x = w / 320.0
         scale_y = h / 320.0
-
-        for idx, stride in enumerate(strides):
-            conf_map = outs[idx].reshape(-1, 1)
-            bbox_map = outs[idx + 6].reshape(-1, 4)
-
-            fm_w = 320 // stride
-            fm_h = 320 // stride
-
-            for i, conf in enumerate(conf_map):
-                if conf[0] < DETECT_CONF_THRESHOLD:
-                    continue
-
-                cx_off, cy_off, bw, bh = bbox_map[i]
-                cell_x = i % fm_w
-                cell_y = i // fm_w
-                cell_cx = (cell_x + 0.5) * stride
-                cell_cy = (cell_y + 0.5) * stride
-
-                abs_cx = (cell_cx + cx_off * stride) * scale_x
-                abs_cy = (cell_cy + cy_off * stride) * scale_y
-                abs_w = bw * stride * scale_x
-                abs_h = bh * stride * scale_y
-
-                x1 = int(abs_cx - abs_w / 2)
-                y1 = int(abs_cy - abs_h / 2)
-                x2 = int(abs_cx + abs_w / 2)
-                y2 = int(abs_cy + abs_h / 2)
-
-                x1, y1 = max(0, x1), max(0, y1)
-                x2, y2 = min(w, x2), min(h, y2)
-                if x2 - x1 < MIN_FACE or y2 - y1 < MIN_FACE:
-                    continue
-
-                boxes.append([x1, y1, x2 - x1, y2 - y1])
-                confs.append(float(conf[0]))
-
-        if not boxes:
-            return []
-
-        indices = cv2.dnn.NMSBoxes(boxes, confs, DETECT_CONF_THRESHOLD, 0.3)
-        if len(indices) == 0:
-            return []
-
         faces = []
-        for i in indices.flatten():
-            x, y, bw, bh = boxes[i]
-            faces.append((x, y, x + bw, y + bh, confs[i]))
-        
-        # Sort by confidence, return only the best face
+        for f in raw_faces:
+            x, y, bw, bh = f[:4]
+            conf = float(f[14])
+            x1 = max(0, int(x * scale_x))
+            y1 = max(0, int(y * scale_y))
+            x2 = min(w, int((x + bw) * scale_x))
+            y2 = min(h, int((y + bh) * scale_y))
+            if x2 - x1 >= MIN_FACE and y2 - y1 >= MIN_FACE:
+                faces.append((x1, y1, x2, y2, conf))
+
         faces.sort(key=lambda f: f[4], reverse=True)
         return [faces[0]] if faces else []
 
@@ -319,9 +283,9 @@ class FaceEngine:
             alpha = 0.3
             for i, lm in enumerate(landmarks):
                 prev = self.prev_landmarks[i]
-                lm.x = alpha * lm.x + (1 - alpha) * prev.x
-                lm.y = alpha * lm.y + (1 - alpha) * prev.y
-                lm.z = alpha * lm.z + (1 - alpha) * prev.z
+                lm.x = alpha * lm.x + (1 - alpha) * prev[0]
+                lm.y = alpha * lm.y + (1 - alpha) * prev[1]
+                lm.z = alpha * lm.z + (1 - alpha) * prev[2]
 
         self.prev_landmarks = [(lm.x, lm.y, lm.z) for lm in landmarks]
 
