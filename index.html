@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>Presença — Protótipo educacional</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="views/dashboard.js" defer></script>
+  <script src="views/students.js" defer></script>
+  <script src="views/recognition.js" defer></script>
+  <script src="views/history.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#inicio" aria-label="Presença, ir para o início">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span><strong>presença</strong><small>CONTROLE DE ACESSO</small></span>
+      </a>
+
+      <div class="sidebar-label">MENU PRINCIPAL</div>
+      <nav class="navigation" aria-label="Navegação principal">
+        <a class="nav-link active" href="#inicio" data-page="inicio"><span class="nav-icon" aria-hidden="true">⌂</span>Visão geral</a>
+        <a class="nav-link" href="#cadastro" data-page="cadastro"><span class="nav-icon" aria-hidden="true">＋</span>Alunos</a>
+        <a class="nav-link" href="#reconhecimento" data-page="reconhecimento"><span class="nav-icon" aria-hidden="true">◎</span>Reconhecimento</a>
+        <a class="nav-link" href="#historico" data-page="historico"><span class="nav-icon" aria-hidden="true">▤</span>Histórico</a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="prototype-note">
+          <span class="note-icon" aria-hidden="true">i</span>
+          <div><strong>Ambiente de demonstração</strong><p>Dados fictícios. Nenhuma biometria é processada ou armazenada.</p></div>
+        </div>
+        <div class="sidebar-credit">PROJETO ACADÊMICO · ÁLGEBRA LINEAR II</div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu" aria-expanded="false">☰</button>
+        <div class="breadcrumb"><span>Espaço acadêmico</span><span class="breadcrumb-divider">/</span><strong id="pageTitle">Visão geral</strong></div>
+        <span class="topbar-badge"><span class="status-dot"></span>Modo demonstração</span>
+      </header>
+
+      <div class="page-wrap">
+        <div id="pageContent"></div>
+        <footer class="footer"><span>Projeto acadêmico · Álgebra Linear II</span><span>Protótipo educacional · dados não persistentes</span></footer>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
